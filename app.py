@@ -11,7 +11,6 @@ from sklearn.ensemble import RandomForestRegressor
 import streamlit.components.v1 as components
 from datetime import datetime
 import plotly.graph_objects as go
-
 # ==================== PAGE CONFIG & SIDEBAR ====================
 st.set_page_config(
     page_title="Streamflow Predictor",
