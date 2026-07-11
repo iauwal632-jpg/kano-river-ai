@@ -8,11 +8,17 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
-import streamlit.components.v1 as components
 from datetime import datetime
 import plotly.graph_objects as go
 import time
 import requests
+import base64
+
+# ==================== BULLETPROOF IFRAME RENDERER ====================
+# This bypasses the deprecated st.components.v1.html entirely
+def render_html_iframe(html_string, height):
+    b64 = base64.b64encode(html_string.encode('utf-8')).decode('utf-8')
+    st.markdown(f'<iframe src="data:text/html;base64,{b64}" width="100%" height="{height}" style="border:none; overflow:hidden;"></iframe>', unsafe_allow_html=True)
 
 # ==================== PAGE CONFIG & SIDEBAR ====================
 st.set_page_config(
@@ -43,7 +49,7 @@ with st.sidebar:
 """)
     st.markdown("---")
     
-    # Developer Profile Section (Compressed to prevent Markdown rendering errors)
+    # Developer Profile Section
     st.markdown("""<div style='background:#ffffff; padding:15px; border-radius:10px; border:1px solid #e2e8f0; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.04);'>
 <h3 style='color:#1a365d; margin-top:0; margin-bottom:5px; font-size:1.1rem;'>Ahmad Nura</h3>
 <p style='color:#64748b; font-size:0.85rem; margin-top:0; margin-bottom:5px; font-weight:600;'>B.Eng Civil Engineering</p>
@@ -156,17 +162,14 @@ with head_col2:
                 url = "https://api.open-meteo.com/v1/forecast?latitude=12.00&longitude=8.59&current=relative_humidity_2m,precipitation&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&past_days=3"
                 response = requests.get(url, timeout=5).json()
                 
-                # Safely extract current data (fallback to 0.0 if satellite returns null)
                 st.session_state.rain = float(response['current'].get('precipitation') or 0.0)
                 st.session_state.hum = float(response['current'].get('relative_humidity_2m') or 0.0)
                 
-                # Extract today's temperature from the daily array
                 daily_tmax = response['daily'].get('temperature_2m_max', [0,0,0,0])
                 daily_tmin = response['daily'].get('temperature_2m_min', [0,0,0,0])
                 st.session_state.tmax = float(daily_tmax[-1] if daily_tmax[-1] is not None else 0.0)
                 st.session_state.tmin = float(daily_tmin[-1] if daily_tmin[-1] is not None else 0.0)
                 
-                # Safely extract and sum the past days of rain (filtering out nulls)
                 past_days_data = response['daily'].get('precipitation_sum', [0,0,0,0])
                 st.session_state.rain3 = float(sum([x for x in past_days_data if x is not None]))
                 
@@ -188,23 +191,24 @@ with st.container():
     cols = st.columns(5)
     with cols[0]:
         st.markdown('<span class="input-label">☔ Precipitation</span>', unsafe_allow_html=True)
-        rain = st.number_input("", min_value=0.0, step=5.0, key="rain", label_visibility="collapsed")
+        # Added actual string labels to fix the Streamlit warning
+        rain = st.number_input("Precipitation", min_value=0.0, step=5.0, key="rain", label_visibility="collapsed")
         st.markdown(f'<span class="input-value">{rain:.1f} mm</span>', unsafe_allow_html=True)
     with cols[1]:
         st.markdown('<span class="input-label">🌧️ 3-Day Rain Sum</span>', unsafe_allow_html=True)
-        rain_3day = st.number_input("", min_value=0.0, step=1.0, key="rain3", label_visibility="collapsed")
+        rain_3day = st.number_input("3-Day Rain", min_value=0.0, step=1.0, key="rain3", label_visibility="collapsed")
         st.markdown(f'<span class="input-value">{rain_3day:.1f} mm</span>', unsafe_allow_html=True)
     with cols[2]:
         st.markdown('<span class="input-label">💧 Humidity</span>', unsafe_allow_html=True)
-        humidity = st.number_input("", min_value=0.0, max_value=100.0, step=1.0, key="hum", label_visibility="collapsed")
+        humidity = st.number_input("Humidity", min_value=0.0, max_value=100.0, step=1.0, key="hum", label_visibility="collapsed")
         st.markdown(f'<span class="input-value">{humidity:.0f} %</span>', unsafe_allow_html=True)
     with cols[3]:
         st.markdown('<span class="input-label">🌡️ Max Temp</span>', unsafe_allow_html=True)
-        tmax = st.number_input("", step=0.5, key="tmax", label_visibility="collapsed")
+        tmax = st.number_input("Max Temp", step=0.5, key="tmax", label_visibility="collapsed")
         st.markdown(f'<span class="input-value">{tmax:.1f} °C</span>', unsafe_allow_html=True)
     with cols[4]:
         st.markdown('<span class="input-label">🌡️ Min Temp</span>', unsafe_allow_html=True)
-        tmin = st.number_input("", step=0.5, key="tmin", label_visibility="collapsed")
+        tmin = st.number_input("Min Temp", step=0.5, key="tmin", label_visibility="collapsed")
         st.markdown(f'<span class="input-value">{tmin:.1f} °C</span>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -300,7 +304,8 @@ canvas_html = f"""
 </script>
 </body></html>
 """
-components.html(canvas_html, height=380)
+# Render via our custom Base64 iframe function instead of deprecated components.html
+render_html_iframe(canvas_html, 380)
 
 # ==================== SENSITIVITY ANALYSIS GRAPH (WAEC STYLE) ====================
 st.markdown("---")
@@ -435,19 +440,23 @@ print_component = f"""
                 </tr>
             </table>
             
+            <!-- BULLETPROOF PICTORIAL VISUALIZER: Uses borders instead of backgrounds to guarantee printing -->
             <div style="margin-top: 40px; text-align: left; background: #ffffff; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
                 <h3 style="color: #2b6cb0; margin-top:0; margin-bottom: 30px;">Pictorial Hydraulic Stress Visualizer</h3>
                 
                 <div style="width: 100%; position: relative; border: 1px solid #cbd5e1; border-radius: 4px; display: flex;">
+                    <!-- Dynamic Indicator Arrow -->
                     <div style="position: absolute; left: {arrow_position:.1f}%; top: 0; height: 100%; border-left: 4px solid #1e293b; z-index: 10;">
                         <div style="position: absolute; top: -20px; left: -14px; font-size: 24px; color: #1e293b;">▼</div>
                     </div>
                     
+                    <!-- Solid Border Blocks (Browsers NEVER hide borders when printing) -->
                     <div style="width: 35%; height: 0; border-top: 35px solid #10b981; border-right: 2px solid white;"></div>
                     <div style="width: 40%; height: 0; border-top: 35px solid #f59e0b; border-right: 2px solid white;"></div>
                     <div style="width: 25%; height: 0; border-top: 35px solid #dc2626;"></div>
                 </div>
                 
+                <!-- Zone Labels -->
                 <div style="width: 100%; display: flex; margin-top: 10px;">
                     <div style="width: 35%; text-align: center; font-size: 12px; font-weight: bold; color: #10b981; letter-spacing: 1px;">SAFE ZONE</div>
                     <div style="width: 40%; text-align: center; font-size: 12px; font-weight: bold; color: #d97706; letter-spacing: 1px;">WARNING ZONE</div>
@@ -480,7 +489,8 @@ print_component = f"""
 </body>
 </html>
 """
-components.html(print_component, height=120)
+# Render via our custom Base64 iframe function instead of deprecated components.html
+render_html_iframe(print_component, 120)
 
 # ==================== FOOTER ====================
 st.markdown("""
